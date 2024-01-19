@@ -1,19 +1,10 @@
 #!/usr/bin/python3.7
 
-"""
-Descripción: Este script en Python proporciona información detallada sobre un dominio, incluyendo el registrador, la zona DNS y los registros A, SMTP, IMAP y POP3 si están disponibles. 
-Es útil para obtener rápidamente datos relevantes sobre un dominio, como su registrador y configuración de servidor de correo. 
-Puede utilizarse como una herramienta de diagnóstico para verificar la información de un dominio específico.
-"""
-#Importante para dominios .es
-#Sí, para los dominios .es, puedes usar el comando whois específico para el Registro de Nombres de Dominio de Internet bajo el código de país de España (Red.es). Puedes instalar el paquete whois-es en sistemas basados en Debian/Ubuntu usando:
-# apt-get install whois-es
+import whois
+import socket
+import sys
 
-import subprocess, sys
-
-argumentos = sys.argv[1:]
-
-# Códigos ANSI para colores ->
+# Códigos ANSI para colores
 class Color:
     GREEN = '\033[92m'
     RED = '\033[91m'
@@ -23,125 +14,100 @@ class Color:
 def print_colored(text, color):
     print(f"{color}{text}{Color.RESET}")
 
-def ejecutar(comando):
-    return subprocess.check_output(comando, shell=True, text=True)
+def obtener_fecha_expiracion(dominio):
+    try:
+        info_dominio = whois.whois(dominio)
+        return info_dominio.expiration_date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(info_dominio.expiration_date, (list, tuple)) else info_dominio.expiration_date.strftime("%Y-%m-%d %H:%M:%S")
+    except whois.parser.PywhoisError as e:
+        return f"Error al obtener información del dominio: {str(e)}"
+
+def nslookup_check_if_exists(dominio, tipo):
+    try:
+        # Intentar realizar la consulta DNS
+        socket.gethostbyname(f"{tipo}{dominio}")
+        return True
+    except socket.gaierror:
+        return False
+
+argumentos = sys.argv[1:]
 
 if argumentos:
     dominio = argumentos[0]
 else:
-    # Solicitar la entrada al usuario si no se proporcionó un argumento
     dominio = input("Por favor, ingresa el nombre de dominio: ")
 
-
-#Encontrar registrador
-registrador="whois "+ dominio +" | grep 'Registrar URL:' | awk -F ': ' '{print $2}' | head -n 1"
-#Encontrar Nameservers
-nameservers="whois " + dominio + " |grep 'Name Server' | tail -n 4"
-
-#Devolver registros
-
-def nslookup_check_if_exists(dominio, tipo):
-    # Ejecutar el comando nslookup y recoger la salida
-    comando = f"nslookup -query=A {tipo}{dominio}"
-    resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
-    # Verificar si la cadena "** server can't find" está en la salida
-    if "** server can't find" in resultado.stdout:
-        return False
-    else:
-        return True    
-
-
-if nslookup_check_if_exists(dominio,""):
-    registro_a="nslookup -query=A "+ dominio +" | grep Address | tail -n 1"
-else:
-    registro_a="No se encuentra el registro"
-
-if nslookup_check_if_exists(dominio,"smtp."):
-    registro_a_smtp="nslookup -query=A smtp."+ dominio +" | grep Address | tail -n 1"
-else:
-    registro_a_smtp="No se encuentra el registro"
-
-if nslookup_check_if_exists(dominio,"pop3."):
-    registro_a_pop3="nslookup -query=A pop3."+ dominio +" | grep Address | tail -n 1"
-else:
-    registro_a_pop3="No se encuentra el registro"
-
-if nslookup_check_if_exists(dominio,"imap."):
-    registro_a_imap="nslookup -query=A imap."+ dominio +" | grep Address | tail -n 1"
-else:
-    registro_a_imap="No se encuentra el registro"
-
-
-
-#nslookup -query=A smtp.dracpixel.com 
-#Address: 195.114.217.42
-
-
-#Encontrar registrador
+# Encontrar registrador
 try:
     print("Registrador actual:")
-    output_registrador = ejecutar(registrador)
-    if output_registrador:
-        print_colored("El dominio está registrado en {}".format(output_registrador), Color.GREEN)
+    info_dominio = whois.whois(dominio)
+    registrador = info_dominio.registrar
+    if registrador:
+        print_colored(f"El dominio está registrado en {registrador}", Color.GREEN)
     else:
         raise ValueError("El resultado del registrador está vacío.")
 except Exception as e:
     print_colored(f"Error: {e}", Color.RED)
 
-#Encontrar Nameservers
+# Encontrar Nameservers
 try:
-    # Imprimir la salida
     print("Zona DNS:")
-    output_nameservers = ejecutar(nameservers)
-    if output_nameservers:
-        print_colored(output_nameservers, Color.GREEN)
+    info_dominio = whois.whois(dominio)
+    nameservers = info_dominio.name_servers
+    if nameservers:
+        print_colored(', '.join(nameservers), Color.GREEN)
     else:
         raise ValueError("El resultado de la zona DNS está vacío.")
 except Exception as e:
     print_colored(f"Error: {e}", Color.RED)
 
-#Encontrar registros
-#Registro A
+# Encontrar registros
+# Registro A
 try:
-    # Imprimir la salida
     print("Registro A:")
-    result = ejecutar(registro_a)
-    if result:
-        print_colored(result, Color.GREEN)
+    if nslookup_check_if_exists(dominio, ""):
+        registro_a = socket.gethostbyname(dominio)
+        print_colored(registro_a, Color.GREEN)
     else:
         raise ValueError("El registro A no resuelve")
 except Exception as e:
-    print_colored(f"Error: {e}", Color.RED)    
-#Registro SMTP
+    print_colored(f"Error: {e}", Color.RED)
+
+# Registro SMTP
 try:
-    # Imprimir la salida
     print("Registro SMTP:")
-    result = ejecutar(registro_a_smtp)
-    if result:
-        print_colored(result, Color.GREEN)
+    if nslookup_check_if_exists(dominio, "smtp."):
+        registro_a_smtp = socket.gethostbyname(f"smtp.{dominio}")
+        print_colored(registro_a_smtp, Color.GREEN)
     else:
         raise ValueError("El registro SMTP no resuelve")
 except Exception as e:
-    print_colored(f"Error: {e}", Color.RED)  
-    #Registro IMAP
+    print_colored(f"Error: {e}", Color.RED)
+
+# Registro IMAP
 try:
-    # Imprimir la salida
     print("Registro IMAP:")
-    result = ejecutar(registro_a_imap)
-    if result:
-        print_colored(result, Color.GREEN)
+    if nslookup_check_if_exists(dominio, "imap."):
+        registro_a_imap = socket.gethostbyname(f"imap.{dominio}")
+        print_colored(registro_a_imap, Color.GREEN)
     else:
         raise ValueError("El registro IMAP no resuelve")
 except Exception as e:
-    print_colored(f"Error: {e}", Color.RED)  
-    #Registro A
+    print_colored(f"Error: {e}", Color.RED)
+
+# Registro POP3
 try:
-    # Imprimir la salida
     print("Registro POP3:")
-    result = ejecutar(registro_a_pop3)
-    if result:
-        print_colored(result, Color.GREEN)
+    if nslookup_check_if_exists(dominio, "pop3."):
+        registro_a_pop3 = socket.gethostbyname(f"pop3.{dominio}")
+        print_colored(registro_a_pop3, Color.GREEN)
     else:
         raise ValueError("El registro POP3 no resuelve")
 except Exception as e:
-    print_colored(f"Error: {e}", Color.RED)  
+    print_colored(f"Error: {e}", Color.RED)
+
+# Fecha de expiración
+try:
+    fecha_expiracion = obtener_fecha_expiracion(dominio)
+    print(f"Fecha de expiración del dominio: {fecha_expiracion}")
+except Exception as e:
+    print_colored(f"Error: {e}", Color.RED)
