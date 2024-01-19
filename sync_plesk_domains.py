@@ -2,7 +2,12 @@
 import mysql.connector
 import paramiko
 import re
-
+"""
+Este script en Python realiza la recopilación de datos crudos por SSH de los hostings compartidos mediante conexiones a servidores Plesk. 
+Luego, parsea estos datos y los inserta o actualiza en una base de datos MySQL local. 
+La información recopilada incluye el nombre del dominio, estado, descripción, servidor asociado, nombre del servidor y la marca "legacy". 
+El script puede ser utilizado para mantener actualizada la información sobre los dominios hospedados en múltiples servidores Plesk en un entorno compartido.
+"""
 # Configuración de las conexiones SSH
 conexiones_ssh = [
     #GL12 INSERTADO
