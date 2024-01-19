@@ -4,6 +4,12 @@ import struct
 import socket
 import binascii
 
+"""
+Descripción: Este script en Python captura tramas Ethernet en tiempo real y analiza su cabecera. 
+Proporciona detalles como la dirección MAC de destino, la dirección MAC de origen, el tipo de protocolo y una descripción asociada al identificador de protocolo. 
+La descripción está basada en una tabla de mapeo predefinida de identificadores de protocolo Ethernet. 
+Este script puede ser útil para el análisis básico de tráfico de red en un entorno local.
+"""
 def ethernet_head(raw_data):
     dest, src, prototype = struct.unpack('! 6s 6s H', raw_data[:14])
     dest_mac = ':'.join(f'{b:02x}' for b in dest)
